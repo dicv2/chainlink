@@ -203,7 +203,7 @@ func findEvmOCR2Bundle(ocr2Bundles []ocr2Bundle) int {
 func findFirstGoodEthKeyAddress(chainID int64, ethKeys []presenters.ETHKeyResource) (string, error) {
 	for _, ethKey := range ethKeys {
 		if ethKey.EVMChainID.Equal(ubig.NewI(chainID)) && !ethKey.Disabled {
-			if ethKey.EthBalance.IsZero() {
+			if ethKey.EthBalance == nil || ethKey.EthBalance.IsZero() {
 				fmt.Println("WARN: selected ETH address has zero balance", ethKey.Address)
 			}
 			return ethKey.Address, nil
