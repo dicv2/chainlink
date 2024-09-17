@@ -47,19 +47,28 @@ type OracleConfigSource struct {
 	MaxFaultyOracles int
 }
 
-type NodeKeys struct {
-	EthAddress            string
-	P2PPeerID             string // p2p_<key>
+// This is an OCR key bundle with the prefixes on each respective key
+// trimmed off
+type OCR2KBTrimmed struct {
 	OCR2BundleID          string // used only in job spec
 	OCR2OnchainPublicKey  string // ocr2on_evm_<key>
 	OCR2OffchainPublicKey string // ocr2off_evm_<key>
 	OCR2ConfigPublicKey   string // ocr2cfg_evm_<key>
-	CSAPublicKey          string
+}
+
+type NodeKeys struct {
+	OCR2KBTrimmed
+	EthAddress   string
+	P2PPeerID    string // p2p_<key>
+	CSAPublicKey string
 }
 
 type orc2drOracleConfig struct {
-	Signers               [][]byte
-	Transmitters          []common.Address
+	Signers [][]byte
+	// populated when transmitterType == OnChainTransmitter
+	Transmitters []common.Address
+	// populated when transmitterType == OffChainTransmitter
+	OffChainTransmitters  [][32]byte
 	F                     uint8
 	OnchainConfig         []byte
 	OffchainConfigVersion uint64
@@ -98,10 +107,17 @@ func mustReadConfig(fileName string) (output TopLevelConfigSource) {
 	return mustParseJSON[TopLevelConfigSource](fileName)
 }
 
-func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string) orc2drOracleConfig {
+type TransmitterType string
+
+const (
+	OnChainTransmitter  TransmitterType = "onchain"
+	OffChainTransmitter TransmitterType = "offchain"
+)
+
+func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string, transmitterType TransmitterType, kbIndex ...int) orc2drOracleConfig {
 	topLevelCfg := mustReadConfig(configFile)
 	cfg := topLevelCfg.OracleConfig
-	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath)
+	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath, kbIndex...)
 
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
@@ -128,42 +144,33 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
 	for _, n := range nca {
-		pkBytes, err := hex.DecodeString(n.OCR2OffchainPublicKey)
-		if err != nil {
-			panic(err)
-		}
 
-		pkBytesFixed := [ed25519.PublicKeySize]byte{}
-		nCopied := copy(pkBytesFixed[:], pkBytes)
-		if nCopied != ed25519.PublicKeySize {
-			panic("wrong num elements copied from ocr2 offchain public key")
-		}
-
+		pkBytesFixed := strToBytes32(n.OCR2OffchainPublicKey)
 		offchainPubKeysBytes = append(offchainPubKeysBytes, types.OffchainPublicKey(pkBytesFixed))
 	}
 
 	configPubKeysBytes := []types.ConfigEncryptionPublicKey{}
 	for _, n := range nca {
-		pkBytes, err := hex.DecodeString(n.OCR2ConfigPublicKey)
-		helpers.PanicErr(err)
-
-		pkBytesFixed := [ed25519.PublicKeySize]byte{}
-		n := copy(pkBytesFixed[:], pkBytes)
-		if n != ed25519.PublicKeySize {
-			panic("wrong num elements copied")
-		}
-
+		pkBytesFixed := strToBytes32(n.OCR2ConfigPublicKey)
 		configPubKeysBytes = append(configPubKeysBytes, types.ConfigEncryptionPublicKey(pkBytesFixed))
 	}
 
 	identities := []confighelper.OracleIdentityExtra{}
 	for index := range nca {
+		var transmitterAccount types.Account
+		if transmitterType == OnChainTransmitter {
+			transmitterAccount = types.Account(nca[index].EthAddress)
+		}
+		if transmitterType == OffChainTransmitter {
+			transmitterAccount = types.Account(fmt.Sprintf("%x", nca[index].CSAPublicKey[:]))
+		}
+
 		identities = append(identities, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  onchainPubKeys[index][:],
 				OffchainPublicKey: offchainPubKeysBytes[index],
 				PeerID:            nca[index].P2PPeerID,
-				TransmitAccount:   types.Account(nca[index].EthAddress),
+				TransmitAccount:   transmitterAccount,
 			},
 			ConfigEncryptionPublicKey: configPubKeysBytes[index],
 		})
@@ -195,17 +202,40 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 		configSigners = append(configSigners, signer)
 	}
 
-	transmitterAddresses, err := evm.AccountToAddress(transmitters)
-	PanicErr(err)
-
 	config := orc2drOracleConfig{
 		Signers:               configSigners,
-		Transmitters:          transmitterAddresses,
 		F:                     f,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
 	}
 
+	if transmitterType == OnChainTransmitter {
+		transmitterAddresses, err := evm.AccountToAddress(transmitters)
+		PanicErr(err)
+		config.Transmitters = transmitterAddresses
+	}
+	if transmitterType == OffChainTransmitter {
+		var offChainTransmitters [][32]byte
+		for _, n := range nca {
+			fmt.Println("CSAPublicKey", n.CSAPublicKey)
+			offChainTransmitters = append(offChainTransmitters, strToBytes32(n.CSAPublicKey))
+		}
+		config.OffChainTransmitters = offChainTransmitters
+	}
+
 	return config
+}
+
+func strToBytes32(str string) [32]byte {
+	pkBytes, err := hex.DecodeString(str)
+	helpers.PanicErr(err)
+
+	pkBytesFixed := [ed25519.PublicKeySize]byte{}
+	n := copy(pkBytesFixed[:], pkBytes)
+	if n != ed25519.PublicKeySize {
+		fmt.Printf("wrong num elements copied (%s): %d != 32\n", str, n)
+		panic("wrong num elements copied")
+	}
+	return pkBytesFixed
 }
