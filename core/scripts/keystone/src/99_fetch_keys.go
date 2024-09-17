@@ -1,33 +1,30 @@
 package src
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
 
-	"github.com/urfave/cli"
-
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func downloadNodePubKeys(nodeList string, chainID int64, pubKeysPath string) []NodeKeys {
-	// Check if file exists already, and if so, return the keys
+func downloadAllNodeKeys(nodeList string, chainID int64, pubKeysPath string) []AllNodeKeys {
 	if _, err := os.Stat(pubKeysPath); err == nil {
 		fmt.Println("Loading existing public keys at:", pubKeysPath)
-		return mustParseJSON[[]NodeKeys](pubKeysPath)
+		allKeys := mustParseJSON[[]AllNodeKeys](pubKeysPath)
+		return allKeys
 	}
 
 	nodes := downloadNodeAPICredentials(nodeList)
-	nodesKeys := mustFetchNodesKeys(chainID, nodes)
+	allKeys := mustFetchAllNodeKeys(chainID, nodes)
 
-	marshalledNodeKeys, err := json.MarshalIndent(nodesKeys, "", " ")
+	marshalledNodeKeys, err := json.MarshalIndent(allKeys, "", " ")
 	if err != nil {
 		panic(err)
 	}
@@ -37,7 +34,18 @@ func downloadNodePubKeys(nodeList string, chainID int64, pubKeysPath string) []N
 	}
 	fmt.Println("Keystone OCR2 public keys have been saved to:", pubKeysPath)
 
-	return nodesKeys
+	return allKeys
+}
+
+func downloadNodePubKeys(nodeList string, chainID int64, pubKeysPath string, index ...int) []NodeKeys {
+	keys := []NodeKeys{}
+	allKeys := downloadAllNodeKeys(nodeList, chainID, pubKeysPath)
+
+	for _, k := range allKeys {
+		keys = append(keys, k.toNodeKeys(index...))
+	}
+
+	return keys
 }
 
 // downloadNodeAPICredentials downloads the node API credentials, or loads them from disk if they already exist
@@ -87,101 +95,93 @@ func clNodesWithCredsToNodes(clNodesWithCreds []CLNodeCredentials) []*node {
 	return nodes
 }
 
-type ocr2Bundle struct {
-	ID                string `json:"id"`
-	ChainType         string `json:"chainType"`
-	OnchainPublicKey  string `json:"onchainPublicKey"`
-	OffchainPublicKey string `json:"offchainPublicKey"`
-	ConfigPublicKey   string `json:"configPublicKey"`
+func trimmedOCR2KB(ocr2Bndl cmd.OCR2KeyBundlePresenter) OCR2KBTrimmed {
+	return OCR2KBTrimmed{
+		OCR2BundleID:          ocr2Bndl.ID,
+		OCR2ConfigPublicKey:   strings.TrimPrefix(ocr2Bndl.ConfigPublicKey, "ocr2cfg_evm_"),
+		OCR2OnchainPublicKey:  strings.TrimPrefix(ocr2Bndl.OnchainPublicKey, "ocr2on_evm_"),
+		OCR2OffchainPublicKey: strings.TrimPrefix(ocr2Bndl.OffChainPublicKey, "ocr2off_evm_"),
+	}
 }
 
-func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []NodeKeys) {
+type AllNodeKeys struct {
+	EthAddress   string
+	P2PPeerID    string // p2p_<key>
+	OCR2KBs      []OCR2KBTrimmed
+	CSAPublicKey string
+}
+
+func (a AllNodeKeys) toNodeKeys(index ...int) NodeKeys {
+	i := 0
+	if len(index) > 0 {
+		i = index[0]
+	}
+	if i >= len(a.OCR2KBs) {
+		panic("index out of range")
+	}
+
+	return NodeKeys{
+		OCR2KBTrimmed: OCR2KBTrimmed{
+			OCR2BundleID:          a.OCR2KBs[i].OCR2BundleID,
+			OCR2ConfigPublicKey:   a.OCR2KBs[i].OCR2ConfigPublicKey,
+			OCR2OnchainPublicKey:  a.OCR2KBs[i].OCR2OnchainPublicKey,
+			OCR2OffchainPublicKey: a.OCR2KBs[i].OCR2OffchainPublicKey,
+		},
+		EthAddress:   a.EthAddress,
+		P2PPeerID:    a.P2PPeerID,
+		CSAPublicKey: a.CSAPublicKey,
+	}
+}
+
+func mustFetchAllNodeKeys(chainId int64, nodes []*node) []AllNodeKeys {
+	allNodeKeys := []AllNodeKeys{}
+
 	for _, n := range nodes {
-		output := &bytes.Buffer{}
-		client, app := newApp(n, output)
+		api := newNodeAPI(n)
+		eKey := api.mustExec(api.methods.ListETHKeys)
+		ethKeys := mustJSON[[]presenters.ETHKeyResource](eKey)
+		ethAddress, err := findFirstGoodEthKeyAddress(chainId, *ethKeys)
+		helpers.PanicErr(err)
 
-		fmt.Println("Logging in:", n.url)
-		loginFs := flag.NewFlagSet("test", flag.ContinueOnError)
-		loginFs.Bool("bypass-version-check", true, "")
-		loginCtx := cli.NewContext(app, loginFs, nil)
-		err := client.RemoteLogin(loginCtx)
-		helpers.PanicErr(err)
-		output.Reset()
-
-		err = client.ListETHKeys(&cli.Context{
-			App: app,
-		})
-		helpers.PanicErr(err)
-		var ethKeys []presenters.ETHKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &ethKeys))
-		ethAddress, err := findFirstGoodEthKeyAddress(chainID, ethKeys)
-		helpers.PanicErr(err)
-		output.Reset()
-
-		err = client.ListP2PKeys(&cli.Context{
-			App: app,
-		})
-		helpers.PanicErr(err)
-		var p2pKeys []presenters.P2PKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &p2pKeys))
-		if len(p2pKeys) != 1 {
+		p2pKeys := api.mustExec(api.methods.ListP2PKeys)
+		p2pKey := mustJSON[[]presenters.P2PKeyResource](p2pKeys)
+		if len(*p2pKey) != 1 {
 			helpers.PanicErr(errors.New("node must have single p2p key"))
 		}
-		peerID := strings.TrimPrefix(p2pKeys[0].PeerID, "p2p_")
-		output.Reset()
+		peerID := strings.TrimPrefix((*p2pKey)[0].PeerID, "p2p_")
 
-		var ocr2Bundles []ocr2Bundle
-		err = client.ListOCR2KeyBundles(&cli.Context{
-			App: app,
-		})
-		helpers.PanicErr(err)
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &ocr2Bundles))
-		ocr2BundleIndex := findEvmOCR2Bundle(ocr2Bundles)
-		output.Reset()
-		if ocr2BundleIndex == -1 {
-			fmt.Println("WARN: node does not have EVM OCR2 bundle, creating one")
-			fs := flag.NewFlagSet("test", flag.ContinueOnError)
-			err = fs.Parse([]string{"evm"})
-			helpers.PanicErr(err)
-			ocr2CreateBundleCtx := cli.NewContext(app, fs, nil)
-			err = client.CreateOCR2KeyBundle(ocr2CreateBundleCtx)
-			helpers.PanicErr(err)
-			output.Reset()
+		bundles := api.mustExec(api.methods.ListOCR2KeyBundles)
+		ocr2Bundles := mustJSON[cmd.OCR2KeyBundlePresenters](bundles)
 
-			err = client.ListOCR2KeyBundles(&cli.Context{
-				App: app,
-			})
-			helpers.PanicErr(err)
-			helpers.PanicErr(json.Unmarshal(output.Bytes(), &ocr2Bundles))
-			ocr2BundleIndex = findEvmOCR2Bundle(ocr2Bundles)
-			output.Reset()
+		ocr2EvmBundles := getTrimmedEVMOCR2KBs(*ocr2Bundles)
+		bundleLen := len(ocr2EvmBundles)
+		if bundleLen < 2 {
+			fmt.Printf("WARN: node has %d EVM OCR2 bundles when it should have at least 2, creating bundles...\n", bundleLen)
+			for i := bundleLen; i < 2; i++ {
+				cBundle := api.withArg("evm").mustExec(api.methods.CreateOCR2KeyBundle)
+				fmt.Println("Created OCR2 bundle", string(cBundle))
+				createdBundle := mustJSON[cmd.OCR2KeyBundlePresenter](cBundle)
+				fmt.Printf("Created bundle %s\n", createdBundle.ID)
+				ocr2EvmBundles = append(ocr2EvmBundles, trimmedOCR2KB(*createdBundle))
+			}
 		}
 
-		ocr2Bndl := ocr2Bundles[ocr2BundleIndex]
-
-		err = client.ListCSAKeys(&cli.Context{
-			App: app,
-		})
+		csaKeys := api.mustExec(api.methods.ListCSAKeys)
+		csaKeyResources := mustJSON[[]presenters.CSAKeyResource](csaKeys)
+		csaPubKey, err := findFirstCSAPublicKey(*csaKeyResources)
 		helpers.PanicErr(err)
-		var csaKeys []presenters.CSAKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &csaKeys))
-		csaPubKey, err := findFirstCSAPublicKey(csaKeys)
-		helpers.PanicErr(err)
-		output.Reset()
 
-		nc := NodeKeys{
-			EthAddress:            ethAddress,
-			P2PPeerID:             peerID,
-			OCR2BundleID:          ocr2Bndl.ID,
-			OCR2ConfigPublicKey:   strings.TrimPrefix(ocr2Bndl.ConfigPublicKey, "ocr2cfg_evm_"),
-			OCR2OnchainPublicKey:  strings.TrimPrefix(ocr2Bndl.OnchainPublicKey, "ocr2on_evm_"),
-			OCR2OffchainPublicKey: strings.TrimPrefix(ocr2Bndl.OffchainPublicKey, "ocr2off_evm_"),
-			CSAPublicKey:          csaPubKey,
+		nodeKeys := AllNodeKeys{
+			EthAddress:   ethAddress,
+			P2PPeerID:    peerID,
+			OCR2KBs:      ocr2EvmBundles,
+			CSAPublicKey: strings.TrimPrefix(csaPubKey, "csa_"),		
 		}
 
-		nca = append(nca, nc)
+		allNodeKeys = append(allNodeKeys, nodeKeys)
 	}
-	return
+
+	return allNodeKeys
 }
 
 func findFirstCSAPublicKey(csaKeyResources []presenters.CSAKeyResource) (string, error) {
@@ -191,13 +191,23 @@ func findFirstCSAPublicKey(csaKeyResources []presenters.CSAKeyResource) (string,
 	return "", errors.New("did not find any CSA Key Resources")
 }
 
-func findEvmOCR2Bundle(ocr2Bundles []ocr2Bundle) int {
+func findEvmOCR2Bundle(ocr2Bundles cmd.OCR2KeyBundlePresenters) int {
 	for i, b := range ocr2Bundles {
 		if b.ChainType == "evm" {
 			return i
 		}
 	}
 	return -1
+}
+
+func getTrimmedEVMOCR2KBs(ocr2Bundles cmd.OCR2KeyBundlePresenters) []OCR2KBTrimmed {
+	evmBundles := []OCR2KBTrimmed{}
+	for _, b := range ocr2Bundles {
+		if b.ChainType == "evm" {
+			evmBundles = append(evmBundles, trimmedOCR2KB(b))
+		}
+	}
+	return evmBundles
 }
 
 func findFirstGoodEthKeyAddress(chainID int64, ethKeys []presenters.ETHKeyResource) (string, error) {
