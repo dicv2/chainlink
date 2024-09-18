@@ -64,11 +64,8 @@ type NodeKeys struct {
 }
 
 type orc2drOracleConfig struct {
-	Signers [][]byte
-	// populated when transmitterType == OnChainTransmitter
-	Transmitters []common.Address
-	// populated when transmitterType == OffChainTransmitter
-	OffChainTransmitters  [][32]byte
+	Signers               [][]byte
+	Transmitters          []common.Address
 	F                     uint8
 	OnchainConfig         []byte
 	OffchainConfigVersion uint64
@@ -107,17 +104,10 @@ func mustReadConfig(fileName string) (output TopLevelConfigSource) {
 	return mustParseJSON[TopLevelConfigSource](fileName)
 }
 
-type TransmitterType string
-
-const (
-	OnChainTransmitter  TransmitterType = "onchain"
-	OffChainTransmitter TransmitterType = "offchain"
-)
-
-func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string, transmitterType TransmitterType, kbIndex ...int) orc2drOracleConfig {
+func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKeysPath string) orc2drOracleConfig {
 	topLevelCfg := mustReadConfig(configFile)
 	cfg := topLevelCfg.OracleConfig
-	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath, kbIndex...)
+	nca := downloadNodePubKeys(nodeList, chainID, pubKeysPath)
 
 	onchainPubKeys := [][]byte{}
 	allPubKeys := map[string]any{}
@@ -144,7 +134,6 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 
 	offchainPubKeysBytes := []types.OffchainPublicKey{}
 	for _, n := range nca {
-
 		pkBytesFixed := strToBytes32(n.OCR2OffchainPublicKey)
 		offchainPubKeysBytes = append(offchainPubKeysBytes, types.OffchainPublicKey(pkBytesFixed))
 	}
@@ -157,20 +146,12 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 
 	identities := []confighelper.OracleIdentityExtra{}
 	for index := range nca {
-		var transmitterAccount types.Account
-		if transmitterType == OnChainTransmitter {
-			transmitterAccount = types.Account(nca[index].EthAddress)
-		}
-		if transmitterType == OffChainTransmitter {
-			transmitterAccount = types.Account(fmt.Sprintf("%x", nca[index].CSAPublicKey[:]))
-		}
-
 		identities = append(identities, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  onchainPubKeys[index][:],
 				OffchainPublicKey: offchainPubKeysBytes[index],
 				PeerID:            nca[index].P2PPeerID,
-				TransmitAccount:   transmitterAccount,
+				TransmitAccount:   types.Account(nca[index].EthAddress),
 			},
 			ConfigEncryptionPublicKey: configPubKeysBytes[index],
 		})
@@ -202,26 +183,16 @@ func generateOCR3Config(nodeList string, configFile string, chainID int64, pubKe
 		configSigners = append(configSigners, signer)
 	}
 
+	transmitterAddresses, err := evm.AccountToAddress(transmitters)
+	PanicErr(err)
+
 	config := orc2drOracleConfig{
 		Signers:               configSigners,
 		F:                     f,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
-	}
-
-	if transmitterType == OnChainTransmitter {
-		transmitterAddresses, err := evm.AccountToAddress(transmitters)
-		PanicErr(err)
-		config.Transmitters = transmitterAddresses
-	}
-	if transmitterType == OffChainTransmitter {
-		var offChainTransmitters [][32]byte
-		for _, n := range nca {
-			fmt.Println("CSAPublicKey", n.CSAPublicKey)
-			offChainTransmitters = append(offChainTransmitters, strToBytes32(n.CSAPublicKey))
-		}
-		config.OffChainTransmitters = offChainTransmitters
+		Transmitters:          transmitterAddresses,
 	}
 
 	return config

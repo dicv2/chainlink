@@ -106,7 +106,6 @@ func deploy(
 		configFile,
 		env.ChainID,
 		publicKeys,
-		OnChainTransmitter,
 	)
 
 	if dryRun {
