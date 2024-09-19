@@ -2,6 +2,7 @@ package llo
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -44,13 +45,15 @@ type transmitter struct {
 	lggr        logger.Logger
 	fromAccount string
 
-	subTransmitters []Transmitter
+	subTransmitters       []Transmitter
+	retirementReportCache WriteOnlyRetirementReportCache
 }
 
 type TransmitterOpts struct {
 	Lggr                   logger.Logger
 	FromAccount            string
 	MercuryTransmitterOpts mercurytransmitter.Opts
+	RetirementReportCache  WriteOnlyRetirementReportCache
 }
 
 // The transmitter will handle starting and stopping the subtransmitters
@@ -63,6 +66,7 @@ func NewTransmitter(opts TransmitterOpts) Transmitter {
 		opts.Lggr,
 		opts.FromAccount,
 		subTransmitters,
+		opts.RetirementReportCache,
 	}
 }
 
@@ -105,6 +109,15 @@ func (t *transmitter) Transmit(
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
 	sigs []types.AttributedOnchainSignature,
 ) (err error) {
+	if report.Info.ReportFormat == llotypes.ReportFormatRetirement {
+		fmt.Println("TRASH Transmit RetirementReport")
+		// Retirement reports don't get transmitted; rather, they are stored in
+		// the RetirementReportCache
+		if err := t.retirementReportCache.Store(ctx, digest, report.Report, sigs); err != nil {
+			return fmt.Errorf("failed to write retirement report to cache: %w", err)
+		}
+		return nil
+	}
 	g := new(errgroup.Group)
 	for _, st := range t.subTransmitters {
 		st := st

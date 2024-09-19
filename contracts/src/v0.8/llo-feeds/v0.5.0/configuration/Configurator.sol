@@ -9,6 +9,8 @@ import {IConfigurator} from "../../interfaces/IConfigurator.sol";
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;
 
+uint256 constant SUPPORTED_ONCHAIN_CONFIG_VERSION = 1;
+
 /**
  * @title Configurator
  * @author samsondav
@@ -33,21 +35,31 @@ contract Configurator is IConfigurator, ConfirmedOwner, TypeAndVersionInterface,
   error InsufficientSigners(uint256 numSigners, uint256 minSigners);
 
   struct ConfigurationState {
-    // The number of times a new configuration
-    // has been set
+    // The number of times a configuration (either staging or production) has
+    // been set for this DON
     uint64 configCount;
     // The block number of the block the last time
-    /// the configuration was updated.
+    // the configuration was updated.
     uint32 latestConfigBlockNumber;
+    // isFlipped is a bit flip that indicates whether blue is production
+    // exactly one of blue/green must be production at all times
+    //
+    // 0 -> blue is production
+    // 1 -> green is production
+    bool isFlipped;
+    // The digest of the current configurations
+    bytes32[2] configDigest;
   }
 
   constructor() ConfirmedOwner(msg.sender) {}
 
   /// @notice Configuration states keyed on DON ID
+  /// @dev The first element is the production configuration state
+  /// and the second element is the staging configuration state
   mapping(bytes32 => ConfigurationState) internal s_configurationStates;
 
   /// @inheritdoc IConfigurator
-  function setConfig(
+  function setProductionConfig(
     bytes32 donId,
     address[] memory signers,
     bytes32[] memory offchainTransmitters,
@@ -65,9 +77,92 @@ contract Configurator is IConfigurator, ConfirmedOwner, TypeAndVersionInterface,
       f,
       onchainConfig,
       offchainConfigVersion,
-      offchainConfig
+      offchainConfig,
+      true
     );
   }
+
+  /// @inheritdoc IConfigurator
+  function setStagingConfig(
+    bytes32 donId,
+    address[] memory signers,
+    bytes32[] memory offchainTransmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig
+  ) external override checkConfigValid(signers.length, f) onlyOwner {
+    require(onchainConfig.length == 64, "Invalid onchainConfig length");
+
+    // Ensure that predecessorConfigDigest is set and corresponds to an
+    // existing production instance
+    uint256 version;
+    bytes32 predecessorConfigDigest;
+    assembly {
+        version := mload(add(onchainConfig, 32)) 
+        predecessorConfigDigest := mload(add(onchainConfig, 64))
+    }
+    require(version == SUPPORTED_ONCHAIN_CONFIG_VERSION, "Unsupported onchainConfig version");
+    // TODO: index lookup needs to flipflop
+    if (predecessorConfigDigest != s_configurationStates[donId].configDigest[0]) {
+        bytes32 have = s_configurationStates[donId].configDigest[0];
+        revert(string(abi.encodePacked("Wrong predecessorConfigDigest, [0], [1], got", bytes32ToString(have), bytes32ToString(s_configurationStates[donId].configDigest[1]), bytes32ToString(predecessorConfigDigest))));
+    }
+    require(predecessorConfigDigest == s_configurationStates[donId].configDigest[0], "Invalid predecessorConfigDigest");
+
+    _setConfig(
+      donId,
+      block.chainid,
+      address(this),
+      signers,
+      offchainTransmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig,
+      false
+    );
+  }
+
+      // Helper function to convert bytes32 to a string
+    function bytes32ToString(bytes32 _bytes32) internal pure returns (string memory) {
+        bytes memory bytesArray = new bytes(64); // Each byte becomes 2 hex characters
+        for (uint256 i = 0; i < 32; i++) {
+            uint8 currentByte = uint8(_bytes32[i]);
+            bytesArray[i * 2] = _toHexChar(currentByte / 16);
+            bytesArray[i * 2 + 1] = _toHexChar(currentByte % 16);
+        }
+        return string(bytesArray);
+    }
+        function _toHexChar(uint8 nibble) internal pure returns (bytes1) {
+        return nibble < 10 ? bytes1(nibble + 48) : bytes1(nibble + 87); // '0' to '9' is 48-57, 'a' to 'f' is 97-102
+    }
+
+   /// @inheritdoc IConfigurator
+   // TODO: unit tests
+   function promoteStagingConfig(bytes32 donId, bool isFlipped) external onlyOwner {
+       ConfigurationState storage configurationState = s_configurationStates[donId];
+       if (isFlipped == configurationState.isFlipped) {
+           configurationState.isFlipped = !isFlipped; // flip blue<->green
+           emit PromoteStagingConfig(donId, configurationState.configDigest[isFlipped ? 1 : 0], configurationState.isFlipped);
+       } else {
+           revert("PromoteStagingConfig: isFlipped must match current state");
+       }
+    // this will trigger the following:
+    // - offchain ShouldRetireCache will start returning true for the old (production)
+    //   protocol instance
+    // - once the old production instance retires it will generate a handover
+    //   retirement report
+    // - the staging instance will become the new production instance once 
+    //   any honest oracle that is on both instances forward the retirement 
+    //   report from the old instance to the new instance via the 
+    //   PredecessorRetirementReportCache
+    //
+    // Note: the promotion flow only works if the previous production instance
+    // is working correctly & generating reports. If that's not the case, the 
+    // owner is expected to "setProductionConfig" directly instead. This will
+    // cause "gaps" to be created, but that seems unavoidable in such a scenario.
+   }
 
   /// @notice Sets config based on the given arguments
   /// @param donId DON ID to set config for
@@ -83,14 +178,18 @@ contract Configurator is IConfigurator, ConfirmedOwner, TypeAndVersionInterface,
     bytes32 donId,
     uint256 sourceChainId,
     address sourceAddress,
-    address[] memory signers,
+    address[] memory signers, // TODO: Probably shouldn't be 'address' needs to be more flexible for PC
     bytes32[] memory offchainTransmitters,
     uint8 f,
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
-    bytes memory offchainConfig
+    bytes memory offchainConfig,
+    bool isProduction
   ) internal {
     ConfigurationState storage configurationState = s_configurationStates[donId];
+
+    // TODO: If its staging, it MUST have a predecessor config digest
+    // TODO: key uniqueness checking?
 
     uint64 newConfigCount = ++configurationState.configCount;
 
@@ -107,18 +206,37 @@ contract Configurator is IConfigurator, ConfirmedOwner, TypeAndVersionInterface,
       offchainConfig
     );
 
-    emit ConfigSet(
-      donId,
-      configurationState.latestConfigBlockNumber,
-      configDigest,
-      newConfigCount,
-      signers,
-      offchainTransmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
+    if (isProduction) {
+        emit ProductionConfigSet(
+          donId,
+          configurationState.latestConfigBlockNumber,
+          configDigest,
+          newConfigCount,
+          signers,
+          offchainTransmitters,
+          f,
+          onchainConfig,
+          offchainConfigVersion,
+          offchainConfig,
+          configurationState.isFlipped
+        );
+        s_configurationStates[donId].configDigest[0] = configDigest;
+    } else {
+        emit StagingConfigSet(
+          donId,
+          configurationState.latestConfigBlockNumber,
+          configDigest,
+          newConfigCount,
+          signers,
+          offchainTransmitters,
+          f,
+          onchainConfig,
+          offchainConfigVersion,
+          offchainConfig,
+          configurationState.isFlipped
+        );
+        s_configurationStates[donId].configDigest[1] = configDigest;
+    }
 
     configurationState.latestConfigBlockNumber = uint32(block.number);
   }

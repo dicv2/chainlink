@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	corerelay "github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/dummy"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -36,9 +37,10 @@ type RelayerFactory struct {
 	logger.Logger
 	*plugins.LoopRegistry
 	loop.GRPCOpts
-	MercuryPool          wsrpc.Pool
-	CapabilitiesRegistry coretypes.CapabilitiesRegistry
-	HTTPClient           *http.Client
+	MercuryPool           wsrpc.Pool
+	CapabilitiesRegistry  coretypes.CapabilitiesRegistry
+	HTTPClient            *http.Client
+	RetirementReportCache llo.RetirementReportCache
 }
 
 type DummyFactoryConfig struct {
@@ -82,12 +84,13 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DS:                   ccOpts.DS,
-			CSAETHKeystore:       config.CSAETHKeystore,
-			MercuryPool:          r.MercuryPool,
-			TransmitterConfig:    config.MercuryTransmitter,
-			CapabilitiesRegistry: r.CapabilitiesRegistry,
-			HTTPClient:           r.HTTPClient,
+			DS:                    ccOpts.DS,
+			CSAETHKeystore:        config.CSAETHKeystore,
+			MercuryPool:           r.MercuryPool,
+			TransmitterConfig:     config.MercuryTransmitter,
+			CapabilitiesRegistry:  r.CapabilitiesRegistry,
+			HTTPClient:            r.HTTPClient,
+			RetirementReportCache: r.RetirementReportCache,
 		}
 		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
