@@ -66,6 +66,9 @@ dockers:
     image_templates:
       - "{{ .Env.IMAGE }}"
 
+archives:
+  - format: binary
+
 # See https://goreleaser.com/customization/docker_manifest/
 docker_manifests:
   - name_template: "{{ .Env.IMAGE }}"
