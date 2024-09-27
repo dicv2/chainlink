@@ -77,6 +77,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		"priceMax", geCfg.PriceMax(),
 		"priceMin", geCfg.PriceMin(),
 		"estimateLimit", geCfg.EstimateLimit(),
+		"daOracleAddress", geCfg.DAOracle().OracleAddress(),
 	)
 	df := geCfg.EIP1559DynamicFees()
 
@@ -84,7 +85,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
 		var err error
-		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType(), geCfg.DAOracle())
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
 		}
