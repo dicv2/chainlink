@@ -38,7 +38,9 @@ contract RMNHome is Ownable2Step, ITypeAndVersion {
     Config config;
   }
 
-  function _configDigest(VersionedConfig memory versionedConfig) internal pure returns (bytes32) {
+  function _configDigest(
+    VersionedConfig memory versionedConfig
+  ) internal pure returns (bytes32) {
     uint256 h = uint256(keccak256(abi.encode(versionedConfig)));
     uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
     uint256 prefix = 0x000b << (256 - 16); // 0x000b00..00
@@ -129,7 +131,9 @@ contract RMNHome is Ownable2Step, ITypeAndVersion {
 
   /// @notice The offchain code can use this to fetch an old config which might still be in use by some remotes
   /// @dev Only to be called by offchain code, efficiency is not a concern
-  function getConfig(bytes32 configDigest) external view returns (VersionedConfig memory versionedConfig, bool ok) {
+  function getConfig(
+    bytes32 configDigest
+  ) external view returns (VersionedConfig memory versionedConfig, bool ok) {
     for (uint256 i = 0; i < CONFIG_RING_BUFFER_SIZE; ++i) {
       if (s_configCounts[i] == 0) {
         // unset config

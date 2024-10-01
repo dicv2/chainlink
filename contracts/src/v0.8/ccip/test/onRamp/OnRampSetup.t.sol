@@ -84,7 +84,9 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     );
   }
 
-  function _generateDynamicOnRampConfig(address feeQuoter) internal pure returns (OnRamp.DynamicConfig memory) {
+  function _generateDynamicOnRampConfig(
+    address feeQuoter
+  ) internal pure returns (OnRamp.DynamicConfig memory) {
     return OnRamp.DynamicConfig({
       feeQuoter: feeQuoter,
       messageValidator: address(0),
@@ -94,7 +96,9 @@ contract OnRampSetup is FeeQuoterFeeSetup {
   }
 
   // Slicing is only available for calldata. So we have to build a new bytes array.
-  function _removeFirst4Bytes(bytes memory data) internal pure returns (bytes memory) {
+  function _removeFirst4Bytes(
+    bytes memory data
+  ) internal pure returns (bytes memory) {
     bytes memory result = new bytes(data.length - 4);
     for (uint256 i = 4; i < data.length; ++i) {
       result[i - 4] = data[i];
@@ -102,7 +106,9 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     return result;
   }
 
-  function _generateDestChainConfigArgs(IRouter router) internal pure returns (OnRamp.DestChainConfigArgs[] memory) {
+  function _generateDestChainConfigArgs(
+    IRouter router
+  ) internal pure returns (OnRamp.DestChainConfigArgs[] memory) {
     OnRamp.DestChainConfigArgs[] memory destChainConfigs = new OnRamp.DestChainConfigArgs[](1);
     destChainConfigs[0] = OnRamp.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, router: router});
     return destChainConfigs;

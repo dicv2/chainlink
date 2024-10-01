@@ -73,7 +73,9 @@ abstract contract USDCBridgeMigrator is OwnerIsCreator {
   /// non-canonical form of USDC which they wish to update to canonical. Function will revert if the chain
   /// selector is zero, or if a migration has already occured for the specified selector.
   /// @dev This function can only be called by the owner
-  function proposeCCTPMigration(uint64 remoteChainSelector) external onlyOwner {
+  function proposeCCTPMigration(
+    uint64 remoteChainSelector
+  ) external onlyOwner {
     // Prevent overwriting existing migration proposals until the current one is finished
     if (s_proposedUSDCMigrationChain != 0) revert ExistingMigrationProposal();
 
@@ -102,7 +104,9 @@ abstract contract USDCBridgeMigrator is OwnerIsCreator {
   /// @notice Set the address of the circle-controlled wallet which will execute a CCTP lane migration
   /// @dev The function should only be invoked once the address has been confirmed by Circle prior to
   /// chain expansion.
-  function setCircleMigratorAddress(address migrator) external onlyOwner {
+  function setCircleMigratorAddress(
+    address migrator
+  ) external onlyOwner {
     s_circleUSDCMigrator = migrator;
 
     emit CircleMigratorAddressSet(migrator);
@@ -113,7 +117,9 @@ abstract contract USDCBridgeMigrator is OwnerIsCreator {
   /// non-canonical form of USDC at present.
   /// @return uint256 the amount of USDC locked into the specified lane. If non-zero, the number
   /// should match the current circulating supply of USDC on the destination chain
-  function getLockedTokensForChain(uint64 remoteChainSelector) public view returns (uint256) {
+  function getLockedTokensForChain(
+    uint64 remoteChainSelector
+  ) public view returns (uint256) {
     return s_lockedTokensByChainSelector[remoteChainSelector];
   }
 }

@@ -6,9 +6,13 @@ import {CCIPConfigTypes} from "../../capability/libraries/CCIPConfigTypes.sol";
 import {Internal} from "../../libraries/Internal.sol";
 
 contract CCIPConfigHelper is CCIPConfig {
-  constructor(address capabilitiesRegistry) CCIPConfig(capabilitiesRegistry) {}
+  constructor(
+    address capabilitiesRegistry
+  ) CCIPConfig(capabilitiesRegistry) {}
 
-  function stateFromConfigLength(uint256 configLength) public pure returns (CCIPConfigTypes.ConfigState) {
+  function stateFromConfigLength(
+    uint256 configLength
+  ) public pure returns (CCIPConfigTypes.ConfigState) {
     return _stateFromConfigLength(configLength);
   }
 
@@ -54,7 +58,9 @@ contract CCIPConfigHelper is CCIPConfig {
     return _computeConfigDigest(donId, configCount, ocr3Config);
   }
 
-  function validateConfig(CCIPConfigTypes.OCR3Config memory cfg) public view {
+  function validateConfig(
+    CCIPConfigTypes.OCR3Config memory cfg
+  ) public view {
     _validateConfig(cfg);
   }
 

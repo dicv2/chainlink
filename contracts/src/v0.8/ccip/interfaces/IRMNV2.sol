@@ -18,5 +18,7 @@ interface IRMNV2 {
 
   /// @notice If there is an active global curse, or an active curse for `subject`, this function returns true.
   /// @param subject To check whether a particular chain is cursed, set to bytes16(uint128(chainSelector)).
-  function isCursed(bytes16 subject) external view returns (bool);
+  function isCursed(
+    bytes16 subject
+  ) external view returns (bool);
 }

@@ -887,7 +887,9 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
 
   // Reverts.
 
-  function test_Fuzz__stateFromConfigLength_Reverts(uint256 configLen) public {
+  function test_Fuzz__stateFromConfigLength_Reverts(
+    uint256 configLen
+  ) public {
     vm.assume(configLen > 2);
     vm.expectRevert(abi.encodeWithSelector(CCIPConfig.InvalidConfigLength.selector, configLen));
     s_ccipCC.stateFromConfigLength(configLen);

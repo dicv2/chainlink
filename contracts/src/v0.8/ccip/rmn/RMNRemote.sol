@@ -18,7 +18,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
 
   uint64 internal immutable i_chainSelector;
 
-  constructor(uint64 chainSelector) {
+  constructor(
+    uint64 chainSelector
+  ) {
     i_chainSelector = chainSelector;
   }
 
@@ -43,7 +45,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
 
   mapping(address signer => bool exists) s_signers; // for more gas efficient verify
 
-  function setConfig(Config calldata newConfig) external onlyOwner {
+  function setConfig(
+    Config calldata newConfig
+  ) external onlyOwner {
     // sanity checks
     {
       // signers are in ascending order of nodeIndex
@@ -143,7 +147,9 @@ contract RMNRemote is OwnerIsCreator, ITypeAndVersion, IRMNV2 {
 
   /// @notice If there is an active global curse, or an active curse for `subject`, this function returns true.
   /// @param subject To check whether a particular chain is cursed, set to bytes16(uint128(chainSelector)).
-  function isCursed(bytes16 subject) external view returns (bool) {
+  function isCursed(
+    bytes16 subject
+  ) external view returns (bool) {
     return false; // XXX temporary workaround
   }
 

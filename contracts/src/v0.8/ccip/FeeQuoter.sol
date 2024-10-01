@@ -226,7 +226,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   // ================================================================
 
   /// @inheritdoc IPriceRegistry
-  function getTokenPrice(address token) public view override returns (Internal.TimestampedPackedUint224 memory) {
+  function getTokenPrice(
+    address token
+  ) public view override returns (Internal.TimestampedPackedUint224 memory) {
     IFeeQuoter.TokenPriceFeedConfig memory priceFeedConfig = s_usdPriceFeedsPerToken[token];
     if (priceFeedConfig.dataFeedAddress == address(0)) {
       return s_usdPerToken[token];
@@ -236,7 +238,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @inheritdoc IPriceRegistry
-  function getValidatedTokenPrice(address token) external view override returns (uint224) {
+  function getValidatedTokenPrice(
+    address token
+  ) external view override returns (uint224) {
     return _getValidatedTokenPrice(token);
   }
 
@@ -300,7 +304,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @notice Gets the token price for a given token and reverts if the token is not supported
   /// @param token The address of the token to get the price for
   /// @return tokenPriceValue The token price
-  function _getValidatedTokenPrice(address token) internal view returns (uint224) {
+  function _getValidatedTokenPrice(
+    address token
+  ) internal view returns (uint224) {
     Internal.TimestampedPackedUint224 memory tokenPrice = getTokenPrice(token);
     // Token price must be set at least once
     if (tokenPrice.timestamp == 0 || tokenPrice.value == 0) revert TokenNotSupported(token);
@@ -377,7 +383,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   // ================================================================
 
   /// @inheritdoc IPriceRegistry
-  function updatePrices(Internal.PriceUpdates calldata priceUpdates) external override {
+  function updatePrices(
+    Internal.PriceUpdates calldata priceUpdates
+  ) external override {
     // The caller must be the fee updater
     _validateCaller();
 
@@ -402,13 +410,17 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
   /// @notice Updates the USD token price feeds for given tokens
   /// @param tokenPriceFeedUpdates Token price feed updates to apply
-  function updateTokenPriceFeeds(TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates) external onlyOwner {
+  function updateTokenPriceFeeds(
+    TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates
+  ) external onlyOwner {
     _updateTokenPriceFeeds(tokenPriceFeedUpdates);
   }
 
   /// @notice Updates the USD token price feeds for given tokens
   /// @param tokenPriceFeedUpdates Token price feed updates to apply
-  function _updateTokenPriceFeeds(TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates) private {
+  function _updateTokenPriceFeeds(
+    TokenPriceFeedUpdate[] memory tokenPriceFeedUpdates
+  ) private {
     for (uint256 i; i < tokenPriceFeedUpdates.length; ++i) {
       TokenPriceFeedUpdate memory update = tokenPriceFeedUpdates[i];
       address sourceToken = update.sourceToken;
@@ -547,7 +559,9 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @notice Gets the fee configuration for a token.
   /// @param token The token to get the fee configuration for.
   /// @return premiumMultiplierWeiPerEth The multiplier for destination chain specific premiums.
-  function getPremiumMultiplierWeiPerEth(address token) external view returns (uint64 premiumMultiplierWeiPerEth) {
+  function getPremiumMultiplierWeiPerEth(
+    address token
+  ) external view returns (uint64 premiumMultiplierWeiPerEth) {
     return s_premiumMultiplierWeiPerEth[token];
   }
 
@@ -891,18 +905,24 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @notice Returns the configured config for the dest chain selector.
   /// @param destChainSelector Destination chain selector to fetch config for.
   /// @return destChainConfig Config for the destination chain.
-  function getDestChainConfig(uint64 destChainSelector) external view returns (DestChainConfig memory) {
+  function getDestChainConfig(
+    uint64 destChainSelector
+  ) external view returns (DestChainConfig memory) {
     return s_destChainConfigs[destChainSelector];
   }
 
   /// @notice Updates the destination chain specific config.
   /// @param destChainConfigArgs Array of source chain specific configs.
-  function applyDestChainConfigUpdates(DestChainConfigArgs[] memory destChainConfigArgs) external onlyOwner {
+  function applyDestChainConfigUpdates(
+    DestChainConfigArgs[] memory destChainConfigArgs
+  ) external onlyOwner {
     _applyDestChainConfigUpdates(destChainConfigArgs);
   }
 
   /// @notice Internal version of applyDestChainConfigUpdates.
-  function _applyDestChainConfigUpdates(DestChainConfigArgs[] memory destChainConfigArgs) internal {
+  function _applyDestChainConfigUpdates(
+    DestChainConfigArgs[] memory destChainConfigArgs
+  ) internal {
     for (uint256 i = 0; i < destChainConfigArgs.length; ++i) {
       DestChainConfigArgs memory destChainConfigArg = destChainConfigArgs[i];
       uint64 destChainSelector = destChainConfigArgs[i].destChainSelector;

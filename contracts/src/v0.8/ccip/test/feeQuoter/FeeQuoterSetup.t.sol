@@ -269,7 +269,9 @@ contract FeeQuoterSetup is TokenSetup {
     assertEq(config1.tokenDecimals, config2.tokenDecimals);
   }
 
-  function _assertTokenPriceFeedConfigUnconfigured(IFeeQuoter.TokenPriceFeedConfig memory config) internal pure virtual {
+  function _assertTokenPriceFeedConfigUnconfigured(
+    IFeeQuoter.TokenPriceFeedConfig memory config
+  ) internal pure virtual {
     _assertTokenPriceFeedConfigEquality(
       config, IFeeQuoter.TokenPriceFeedConfig({dataFeedAddress: address(0), tokenDecimals: 0})
     );
@@ -430,7 +432,9 @@ contract FeeQuoterFeeSetup is FeeQuoterSetup {
     return (tokenAmount * ratio) / 1e5;
   }
 
-  function _configUSDCentToWei(uint256 usdCent) internal pure returns (uint256) {
+  function _configUSDCentToWei(
+    uint256 usdCent
+  ) internal pure returns (uint256) {
     return usdCent * 1e16;
   }
 }

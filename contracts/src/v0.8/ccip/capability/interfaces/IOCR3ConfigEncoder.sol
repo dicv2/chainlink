@@ -7,5 +7,7 @@ import {CCIPConfigTypes} from "../libraries/CCIPConfigTypes.sol";
 /// in the offchain integration tests.
 interface IOCR3ConfigEncoder {
   /// @dev Encodes an array of OCR3Config into a bytes array. For test usage only.
-  function exposeOCR3Config(CCIPConfigTypes.OCR3Config[] calldata config) external view returns (bytes memory);
+  function exposeOCR3Config(
+    CCIPConfigTypes.OCR3Config[] calldata config
+  ) external view returns (bytes memory);
 }
