@@ -1,5 +1,71 @@
 # Changelog Chainlink Core
 
+## 2.18.0 - PREVIEW
+
+## nops
+
+- [#14364](https://github.com/smartcontractkit/chainlink/pull/14364) [`5d96be59a2`](https://github.com/smartcontractkit/chainlink/commit/5d96be59a27f68f2f491a7d9f8cb0b2af4e0e835) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - Make websocket URL `WSURL` for `EVM.Nodes` optional, and apply logic so that:
+  - If WS URL was not provided, SubscribeFilterLogs should fail with an explicit error
+  - If WS URL was not provided LogBroadcaster should be disabled
+    #nops
+
+## added
+
+- [#14308](https://github.com/smartcontractkit/chainlink/pull/14308) [`3e9e058da4`](https://github.com/smartcontractkit/chainlink/commit/3e9e058da4f2ba4b51286d4f05aa7efcba179e79) Thanks [@kidambisrinivas](https://github.com/kidambisrinivas)! - #added log-event-trigger LOOPP capability, using ChainReader
+
+- [#14651](https://github.com/smartcontractkit/chainlink/pull/14651) [`8ca41fc8f7`](https://github.com/smartcontractkit/chainlink/commit/8ca41fc8f722accfccccb4b1778db2df8fef5437) Thanks [@0xnogo](https://github.com/0xnogo)! - #added Use ApplyDefaultsAndValidate
+
+- [#14588](https://github.com/smartcontractkit/chainlink/pull/14588) [`fc1fefcba7`](https://github.com/smartcontractkit/chainlink/commit/fc1fefcba7a09699dade771d992a388cf71e82b4) Thanks [@0xnogo](https://github.com/0xnogo)! - #added Add RMNRemote in the chain reader definition
+
+- [#14576](https://github.com/smartcontractkit/chainlink/pull/14576) [`0e35bc794c`](https://github.com/smartcontractkit/chainlink/commit/0e35bc794ce666f13fb24a6918f7617928c17235) Thanks [@aalu1418](https://github.com/aalu1418)! - #added solana: compute unit limit configuration and transaction instruction
+
+- [#14629](https://github.com/smartcontractkit/chainlink/pull/14629) [`4928e60ddf`](https://github.com/smartcontractkit/chainlink/commit/4928e60ddfe375e4a0c644cb210802b4c4db5dbd) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - Support Zircuit fraud transactions detection and zk overflow detection #added
+
+- [#14491](https://github.com/smartcontractkit/chainlink/pull/14491) [`c6e6e213a6`](https://github.com/smartcontractkit/chainlink/commit/c6e6e213a698b558d3302277566587ba0c30a6fe) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - #added HTTP target capability and gateway connector handler
+
+- [#14500](https://github.com/smartcontractkit/chainlink/pull/14500) [`d435981038`](https://github.com/smartcontractkit/chainlink/commit/d4359810380a34fbcdd2839e0fc23a35c5236acd) Thanks [@0xnogo](https://github.com/0xnogo)! - #added Pass the home chain selector to the commit plugin factory
+
+- [#14558](https://github.com/smartcontractkit/chainlink/pull/14558) [`133e347872`](https://github.com/smartcontractkit/chainlink/commit/133e3478727814575636d5989af9d61cbf7997cb) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Added `EVM.HeadTracker.PersistenceEnabled` config option to disable persistence for HeadTracker. #added
+
+- [#14656](https://github.com/smartcontractkit/chainlink/pull/14656) [`004a0de233`](https://github.com/smartcontractkit/chainlink/commit/004a0de2337b0312558ae7c045e7fc2fb4a05916) Thanks [@dimkouv](https://github.com/dimkouv)! - #added graceful shutdown for ccip oracles
+
+## changed
+
+- [#14635](https://github.com/smartcontractkit/chainlink/pull/14635) [`ee1d6e3b1a`](https://github.com/smartcontractkit/chainlink/commit/ee1d6e3b1a60dc657a5cab869aac0897e33dc76d) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Hedera chain type: broadcast transactions only to a single healthy RPC instead of all healthy RPCs to avoid redundant relay fees. #changed
+
+## updated
+
+- [#14530](https://github.com/smartcontractkit/chainlink/pull/14530) [`2c16f46311`](https://github.com/smartcontractkit/chainlink/commit/2c16f4631184a6e3da7f2f3957173500e2c4837b) Thanks [@Madalosso](https://github.com/Madalosso)! - #updated default config values for FinalityTagEnabled to match CCIP configs
+
+## wip
+
+- [#14536](https://github.com/smartcontractkit/chainlink/pull/14536) [`4b977021ed`](https://github.com/smartcontractkit/chainlink/commit/4b977021ed2150678bbe497afeb1312aa64e62cf) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - #wip implement gateway handler that forwards outgoing request from http target capability. introduce gateway http client
+
+## bugfix
+
+- [#14534](https://github.com/smartcontractkit/chainlink/pull/14534) [`de268e98b8`](https://github.com/smartcontractkit/chainlink/commit/de268e98b8d68a284e1260297925b91c5d2411bc) Thanks [@huangzhen1997](https://github.com/huangzhen1997)! - - register polling subscription to avoid subscription leaking when rpc client gets closed.
+  - add a temporary special treatment for SubscribeNewHead before we replace it with SubscribeToHeads. Add a goroutine that forwards new head from poller to caller channel.
+  - fix a deadlock in poller, by using a new lock for subs slice in rpc client.
+    #bugfix
+
+## internal
+
+- [#14511](https://github.com/smartcontractkit/chainlink/pull/14511) [`8fa9a67dfc`](https://github.com/smartcontractkit/chainlink/commit/8fa9a67dfc130feab290860f0b7bf860ddc86bb3) Thanks [@silaslenihan](https://github.com/silaslenihan)! - #internal Updated QueryKey to be able to do advanced queries on contract event data words
+
+- [#14496](https://github.com/smartcontractkit/chainlink/pull/14496) [`25c469880f`](https://github.com/smartcontractkit/chainlink/commit/25c469880f537556278e3d4eff3e87f185917834) Thanks [@cedric-cordenier](https://github.com/cedric-cordenier)! - Add compute capability #internal
+
+- [#14631](https://github.com/smartcontractkit/chainlink/pull/14631) [`ad9398a8fd`](https://github.com/smartcontractkit/chainlink/commit/ad9398a8fd2c2e95f3b4241bbfcfe264d8cda030) Thanks [@martin-cll](https://github.com/martin-cll)! - Fix for Mercury transmitter decoding reports of a different codec version #internal
+
+- [#14603](https://github.com/smartcontractkit/chainlink/pull/14603) [`19690b0c44`](https://github.com/smartcontractkit/chainlink/commit/19690b0c4499cf01379f98396917be170ba2b333) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Implementing evm specific token data encoder for CCIP #internal
+
+- [#14607](https://github.com/smartcontractkit/chainlink/pull/14607) [`eec0ff9469`](https://github.com/smartcontractkit/chainlink/commit/eec0ff946986dfbeeb46ed3d311ff9b8d0e21735) Thanks [@winder](https://github.com/winder)! - #internal update ccip chainreader config.
+
+- [#14624](https://github.com/smartcontractkit/chainlink/pull/14624) [`be774f00a9`](https://github.com/smartcontractkit/chainlink/commit/be774f00a961d9a7361d9ae5b10c97996f7ab164) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Registering USDC/CCTP events in the ChainReader during oracle creation #internal
+
+## untagged
+
+- [#14564](https://github.com/smartcontractkit/chainlink/pull/14564) [`8b01661e03`](https://github.com/smartcontractkit/chainlink/commit/8b01661e032add54c07f269624b46bddd4476b95) Thanks [@momentmaker](https://github.com/momentmaker)! - start of next release
+
 ## 2.17.0 - UNRELEASED
 
 ### Minor Changes
@@ -35,8 +101,8 @@
   Adding `LogBroadcasterEnabled` allows certain chains to completely disable the `LogBroadcaster` feature, which is an old feature (getting replaced by logPoller) that only few products are using it:
 
   - OCR1 Median
-  - \*OCR2 Median when ChainReader is disabled
-  - \*pre-OCR2 Keeper
+  - *OCR2 Median when ChainReader is disabled
+  - *pre-OCR2 Keeper
   - Flux Monitor
   - Direct RequestOCR1 Median
 
@@ -492,7 +558,7 @@
 
 - [#13495](https://github.com/smartcontractkit/chainlink/pull/13495) [`483ee6ae06`](https://github.com/smartcontractkit/chainlink/commit/483ee6ae06f608d150ab360e0a3ffe6895b39d52) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #updated Fix verb formatting in the log outputs.
 
-- [#13599](https://github.com/smartcontractkit/chainlink/pull/13599) [`e0ce0795b4`](https://github.com/smartcontractkit/chainlink/commit/e0ce0795b44f27539611327efce7c7c004511daa) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #internal Add loggercheck linter to verify that \*w logging methods have even number of args.
+- [#13599](https://github.com/smartcontractkit/chainlink/pull/13599) [`e0ce0795b4`](https://github.com/smartcontractkit/chainlink/commit/e0ce0795b44f27539611327efce7c7c004511daa) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - #internal Add loggercheck linter to verify that *w logging methods have even number of args.
 
 ## 2.13.0 - 2024-07-01
 
@@ -829,7 +895,7 @@
 
 - [#12412](https://github.com/smartcontractkit/chainlink/pull/12412) [`83c8688a14`](https://github.com/smartcontractkit/chainlink/commit/83c8688a14ac04111f999d132673ebaf6a364b4a) Thanks [@poopoothegorilla](https://github.com/poopoothegorilla)! - Bump grafana to 1.1.1
 
-- [#12248](https://github.com/smartcontractkit/chainlink/pull/12248) [`e1950769ee`](https://github.com/smartcontractkit/chainlink/commit/e1950769ee3ff2a40ca5772b9634c45f8be241cc) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - Add version support for automation registry 2.\*
+- [#12248](https://github.com/smartcontractkit/chainlink/pull/12248) [`e1950769ee`](https://github.com/smartcontractkit/chainlink/commit/e1950769ee3ff2a40ca5772b9634c45f8be241cc) Thanks [@FelixFan1992](https://github.com/FelixFan1992)! - Add version support for automation registry 2.*
 
 ## 2.10.0 - 2024-04-05
 
@@ -1405,8 +1471,8 @@ The following `AUDIT_LOGGER_*` environment variables below configure this option
 
 An optional list of HTTP headers to be added for every optional audit log event. If the above `AUDIT_LOGGER_FORWARD_TO_URL` is set, audit log events will be POSTed to that URL, and will include headers specified in this environment variable. One example use case is auth for example: `AUDIT_LOGGER_HEADERS="Authorization||{{token}}"`.
 
-Header keys and values are delimited on ||, and multiple headers can be added with a forward slash delimiter ('\\'). An example of multiple key value pairs:
-`AUDIT_LOGGER_HEADERS="Authorization||{{token}}\Some-Other-Header||{{token2}}"`
+Header keys and values are delimited on ||, and multiple headers can be added with a forward slash delimiter ('\'). An example of multiple key value pairs:
+`AUDIT_LOGGER_HEADERS="Authorization||{{token}}Some-Other-Header||{{token2}}"`
 
 ##### AUDIT_LOGGER_JSON_WRAPPER_KEY
 
@@ -1618,7 +1684,7 @@ If minConfirmations > 0 and failOnRevert=true then the ethtx task will error on 
 
 If `minConfirmations` is not set on the task, the chain default will be used which is usually 12 and always greater than 0.
 
-- `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\\"X-Header-1\\", \\"value1\\", \\"X-Header-2\\", \\"value2\\"]"]`.
+- `http` task now allows specification of request headers. Use like so: `foo [type=http headers="[\"X-Header-1\", \"value1\", \"X-Header-2\", \"value2\"]"]`.
 
 ### Fixed
 
@@ -1634,7 +1700,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 
 ### Fixed
 
-- Ensure failed EthSubscribe didn't register a (\*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
+- Ensure failed EthSubscribe didn't register a (*rpc.ClientSubscription)(nil) which would lead to a panic on Unsubscribe
 - Fixes parsing of float values on job specs
 
 ## [1.4.0] - 2022-05-02
@@ -1659,7 +1725,7 @@ If `minConfirmations` is not set on the task, the chain default will be used whi
 ### Added
 
 - Added support for Keeper registry v1.2 in keeper jobs
-- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` \* (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
+- Added disk rotating logs. Chainlink will now always log to disk at debug level. The default output directory for debug logs is Chainlink's root directory (ROOT_DIR) but can be configured by setting LOG_FILE_DIR. This makes it easier for node operators to report useful debugging information to Chainlink's team, since all the debug logs are conveniently located in one directory. Regular logging to STDOUT still works as before and respects the LOG_LEVEL env var. If you want to log in disk at a particular level, you can pipe STDOUT to disk. This automatic debug-logs-to-disk feature is enabled by default, and will remain enabled as long as the `LOG_FILE_MAX_SIZE` ENV var is set to a value greater than zero. The amount of disk space required for this feature to work can be calculated with the following formula: `LOG_FILE_MAX_SIZE` * (`LOG_FILE_MAX_BACKUPS` + 1). If your disk doesn't have enough disk space, the logging will pause and the application will log Errors until space is available again. New environment variables related to this feature:
   - `LOG_FILE_MAX_SIZE` (default: 5120mb) - this env var allows you to override the log file's max size (in megabytes) before file rotation.
   - `LOG_FILE_MAX_AGE` (default: 0) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the log file's max age (in days) before file rotation. Keeping this config with the default value means not to remove old log files.
   - `LOG_FILE_MAX_BACKUPS` (default: 1) - if `LOG_FILE_MAX_SIZE` is set, this env var allows you to override the max amount of old log files to retain. Keeping this config with the default value means to retain 1 old log file at most (though `LOG_FILE_MAX_AGE` may still cause them to get deleted). If this is set to 0, the node will retain all old log files instead.
@@ -2602,7 +2668,7 @@ Note that it has no effect on FMv1 jobs. Node operators will need to upgrade to 
 - Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
 
   ```
-  my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
+  my_bridge [type=bridge name="my_bridge" requestData="{\"hi\": \"hello\"}"]
   ```
 
   ... can now be written as:
