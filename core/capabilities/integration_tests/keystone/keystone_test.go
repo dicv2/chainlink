@@ -1,18 +1,22 @@
-package integration_tests
+package keystone
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/types"
 )
@@ -22,17 +26,33 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 
 	// The don IDs set in the below calls are inferred from the order in which the dons are added to the capabilities registry
 	// in the setupCapabilitiesRegistryContract function, should this order change the don IDs will need updating.
-	workflowDonInfo := createDonInfo(t, don{id: 1, numNodes: 7, f: 2})
-	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 2})
-	targetDonInfo := createDonInfo(t, don{id: 3, numNodes: 4, f: 1})
+	workflowDonInfo := framework.CreateDonInfo(t, framework.Don{ID: 1, NumNodes: 7, F: 2})
+	triggerDonInfo := framework.CreateDonInfo(t, framework.Don{ID: 2, NumNodes: 7, F: 2})
+	targetDonInfo := framework.CreateDonInfo(t, framework.Don{ID: 3, NumNodes: 4, F: 1})
 
-	consumer, feedIDs, triggerSink := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
-		"2s", "allAtOnce")
+	feedCount := 3
+	var feedIDs []string
+	for i := 0; i < feedCount; i++ {
+		feedIDs = append(feedIDs, newFeedID(t))
+	}
+
+	addWorkflowJob := func(t *testing.T, workflowNodes []*cltest.TestApplication,
+		workflowName string,
+		workflowOwner string,
+		consumerContractAddr common.Address) {
+
+		for _, node := range workflowNodes {
+			addWorkflowJob(t, node, workflowName, workflowOwner, feedIDs, consumerContractAddr, "2s", "allAtOnce")
+		}
+
+	}
+
+	consumer, triggerSink := framework.SetupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, addWorkflowJob)
 
 	reports := []*datastreams.FeedReport{
-		createFeedReport(t, big.NewInt(1), 5, feedIDs[0], triggerDonInfo.keyBundles),
-		createFeedReport(t, big.NewInt(3), 7, feedIDs[1], triggerDonInfo.keyBundles),
-		createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonInfo.keyBundles),
+		createFeedReport(t, big.NewInt(1), 5, feedIDs[0], triggerDonInfo.KeyBundles),
+		createFeedReport(t, big.NewInt(3), 7, feedIDs[1], triggerDonInfo.KeyBundles),
+		createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonInfo.KeyBundles),
 	}
 
 	triggerSink.SendReports(reports)
@@ -45,22 +65,45 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 
 	// The don IDs set in the below calls are inferred from the order in which the dons are added to the capabilities registry
 	// in the setupCapabilitiesRegistryContract function, should this order change the don IDs will need updating.
-	workflowDonInfo := createDonInfo(t, don{id: 1, numNodes: 7, f: 2})
-	triggerDonInfo := createDonInfo(t, don{id: 2, numNodes: 7, f: 2})
-	targetDonInfo := createDonInfo(t, don{id: 3, numNodes: 4, f: 1})
+	workflowDonInfo := framework.CreateDonInfo(t, framework.Don{ID: 1, NumNodes: 7, F: 2})
+	triggerDonInfo := framework.CreateDonInfo(t, framework.Don{ID: 2, NumNodes: 7, F: 2})
+	targetDonInfo := framework.CreateDonInfo(t, framework.Don{ID: 3, NumNodes: 4, F: 1})
 
-	consumer, feedIDs, triggerSink := setupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, 3,
-		"2s", "oneAtATime")
+	feedCount := 3
+	var feedIDs []string
+	for i := 0; i < feedCount; i++ {
+		feedIDs = append(feedIDs, newFeedID(t))
+	}
+
+	addWorkflowJob := func(t *testing.T, workflowNodes []*cltest.TestApplication,
+		workflowName string,
+		workflowOwner string,
+		consumerContractAddr common.Address) {
+
+		for _, node := range workflowNodes {
+			addWorkflowJob(t, node, workflowName, workflowOwner, feedIDs, consumerContractAddr, "2s", "oneAtATime")
+		}
+
+	}
+
+	consumer, triggerSink := framework.SetupStreamDonsWithTransmissionSchedule(ctx, t, workflowDonInfo, triggerDonInfo, targetDonInfo, addWorkflowJob)
 
 	reports := []*datastreams.FeedReport{
-		createFeedReport(t, big.NewInt(1), 5, feedIDs[0], triggerDonInfo.keyBundles),
-		createFeedReport(t, big.NewInt(3), 7, feedIDs[1], triggerDonInfo.keyBundles),
-		createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonInfo.keyBundles),
+		createFeedReport(t, big.NewInt(1), 5, feedIDs[0], triggerDonInfo.KeyBundles),
+		createFeedReport(t, big.NewInt(3), 7, feedIDs[1], triggerDonInfo.KeyBundles),
+		createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonInfo.KeyBundles),
 	}
 
 	triggerSink.SendReports(reports)
 
 	waitForConsumerReports(ctx, t, consumer, reports)
+}
+
+func newFeedID(t *testing.T) string {
+	buf := [32]byte{}
+	_, err := rand.Read(buf[:])
+	require.NoError(t, err)
+	return "0x" + hex.EncodeToString(buf[:])
 }
 
 func waitForConsumerReports(ctx context.Context, t *testing.T, consumer *feeds_consumer.KeystoneFeedsConsumer, triggerFeedReports []*datastreams.FeedReport) {

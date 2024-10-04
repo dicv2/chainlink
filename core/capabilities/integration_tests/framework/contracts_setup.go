@@ -1,4 +1,4 @@
-package integration_tests
+package framework
 
 import (
 	"context"
@@ -97,8 +97,8 @@ func peerToNode(nopID uint32, p peer) (kcr.CapabilitiesRegistryNodeParams, error
 	}, nil
 }
 
-func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workflowDon donInfo, triggerDon donInfo,
-	targetDon donInfo,
+func setupCapabilitiesRegistryContract(ctx context.Context, t *testing.T, workflowDon DonInfo, triggerDon DonInfo,
+	targetDon DonInfo,
 	transactOpts *bind.TransactOpts, backend *ethBackend) common.Address {
 	addr, _, reg, err := kcr.DeployCapabilitiesRegistry(transactOpts, backend)
 	require.NoError(t, err)
@@ -277,7 +277,7 @@ func newCapabilityConfig() *pb.CapabilityConfig {
 	}
 }
 
-func setupForwarderContract(t *testing.T, workflowDon donInfo,
+func setupForwarderContract(t *testing.T, workflowDon DonInfo,
 	transactOpts *bind.TransactOpts, backend *ethBackend) (common.Address, *forwarder.KeystoneForwarder) {
 	addr, _, fwd, err := forwarder.DeployKeystoneForwarder(transactOpts, backend)
 	require.NoError(t, err)

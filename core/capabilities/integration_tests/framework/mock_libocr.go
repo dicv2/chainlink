@@ -177,7 +177,7 @@ func (m *MockLibOCR) simulateProtocolRound(ctx context.Context) error {
 				continue
 			}
 
-			// For each node select a random set of f+1 signatures to mimic libocr behaviour
+			// For each node select a random set of F+1 signatures to mimic libocr behaviour
 			s := rand.NewSource(time.Now().UnixNano())
 			r := rand.New(s)
 			indices := r.Perm(len(signatures))

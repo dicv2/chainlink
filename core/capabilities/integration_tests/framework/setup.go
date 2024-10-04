@@ -1,11 +1,9 @@
-package integration_tests
+package framework
 
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"math/big"
 	"strconv"
 	"testing"
 	"time"
@@ -16,20 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -42,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -56,15 +46,18 @@ var (
 	workflowOwnerID = "0100000000000000000000000000000000000001"
 )
 
-type donInfo struct {
+type DonInfo struct {
 	commoncap.DON
 	keys       []ethkey.KeyV2
-	keyBundles []ocr2key.KeyBundle
+	KeyBundles []ocr2key.KeyBundle
 	peerIDs    []peer
 }
 
-func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, workflowDonInfo donInfo, triggerDonInfo donInfo, targetDonInfo donInfo,
-	feedCount int, deltaStage string, schedule string) (*feeds_consumer.KeystoneFeedsConsumer, []string, *framework.ReportsSink) {
+func SetupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, workflowDonInfo DonInfo, triggerDonInfo DonInfo, targetDonInfo DonInfo,
+	addWorkFlowJob func(t *testing.T, nodes []*cltest.TestApplication,
+		workflowName string,
+		workflowOwner string,
+		consumerAddr common.Address)) (*feeds_consumer.KeystoneFeedsConsumer, *ReportsSink) {
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(TestLogLevel)
 
@@ -73,40 +66,34 @@ func setupStreamDonsWithTransmissionSchedule(ctx context.Context, t *testing.T, 
 	forwarderAddr, _ := setupForwarderContract(t, workflowDonInfo, transactor, ethBlockchain)
 	consumerAddr, consumer := setupConsumerContract(t, transactor, ethBlockchain, forwarderAddr, workflowOwnerID, workflowName)
 
-	var feedIDs []string
-	for i := 0; i < feedCount; i++ {
-		feedIDs = append(feedIDs, newFeedID(t))
-	}
+	sink := NewReportsSink()
 
-	sink := framework.NewReportsSink()
-
-	libocr := framework.NewMockLibOCR(t, workflowDonInfo.F, 1*time.Second)
+	libocr := NewMockLibOCR(t, workflowDonInfo.F, 1*time.Second)
 	workflowDonNodes, _, _ := createDons(ctx, t, lggr, sink,
 		workflowDonInfo, triggerDonInfo, targetDonInfo,
 		ethBlockchain, capabilitiesRegistryAddr, forwarderAddr,
-		workflowDonInfo.keyBundles, transactor, libocr)
-	for _, node := range workflowDonNodes {
-		addWorkflowJob(t, node, workflowName, workflowOwnerID, feedIDs, consumerAddr, deltaStage, schedule)
-	}
+		workflowDonInfo.KeyBundles, transactor, libocr)
+
+	addWorkFlowJob(t, workflowDonNodes, workflowName, workflowOwnerID, consumerAddr)
 
 	servicetest.Run(t, ethBlockchain)
 	servicetest.Run(t, libocr)
 	servicetest.Run(t, sink)
-	return consumer, feedIDs, sink
+	return consumer, sink
 }
 
-func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSink *framework.ReportsSink,
-	workflowDon donInfo,
-	triggerDon donInfo,
-	targetDon donInfo,
+func createDons(ctx context.Context, t *testing.T, lggr logger.Logger, reportsSink *ReportsSink,
+	workflowDon DonInfo,
+	triggerDon DonInfo,
+	targetDon DonInfo,
 	simulatedEthBlockchain *ethBackend,
 	capRegistryAddr common.Address,
 	forwarderAddr common.Address,
 	workflowNodeKeyBundles []ocr2key.KeyBundle,
 	transactor *bind.TransactOpts,
-	libocr *framework.MockLibOCR,
+	libocr *MockLibOCR,
 ) ([]*cltest.TestApplication, []*cltest.TestApplication, []*cltest.TestApplication) {
-	broker := framework.NewTestAsyncMessageBroker(t, 1000)
+	broker := NewTestAsyncMessageBroker(t, 1000)
 
 	var triggerNodes []*cltest.TestApplication
 	for i, triggerPeer := range triggerDon.Members {
@@ -238,14 +225,14 @@ func startNewNode(ctx context.Context,
 		dispatcher, peerWrapper, localCapabilities, keyV2, lggr)
 }
 
-type don struct {
-	id       uint32
-	numNodes int
-	f        uint8
+type Don struct {
+	ID       uint32
+	NumNodes int
+	F        uint8
 }
 
-func createDonInfo(t *testing.T, don don) donInfo {
-	keyBundles, peerIDs := getKeyBundlesAndPeerIDs(t, don.numNodes)
+func CreateDonInfo(t *testing.T, don Don) DonInfo {
+	keyBundles, peerIDs := getKeyBundlesAndPeerIDs(t, don.NumNodes)
 
 	donPeers := make([]p2ptypes.PeerID, len(peerIDs))
 	var donKeys []ethkey.KeyV2
@@ -258,47 +245,18 @@ func createDonInfo(t *testing.T, don don) donInfo {
 		donKeys = append(donKeys, newKey)
 	}
 
-	triggerDonInfo := donInfo{
+	triggerDonInfo := DonInfo{
 		DON: commoncap.DON{
-			ID:            don.id,
+			ID:            don.ID,
 			Members:       donPeers,
-			F:             don.f,
+			F:             don.F,
 			ConfigVersion: 1,
 		},
 		peerIDs:    peerIDs,
 		keys:       donKeys,
-		keyBundles: keyBundles,
+		KeyBundles: keyBundles,
 	}
 	return triggerDonInfo
-}
-
-func createFeedReport(t *testing.T, price *big.Int, observationTimestamp int64,
-	feedIDString string,
-	keyBundles []ocr2key.KeyBundle) *datastreams.FeedReport {
-	reportCtx := ocrTypes.ReportContext{}
-	rawCtx := RawReportContext(reportCtx)
-
-	bytes, err := hex.DecodeString(feedIDString[2:])
-	require.NoError(t, err)
-	var feedIDBytes [32]byte
-	copy(feedIDBytes[:], bytes)
-
-	report := &datastreams.FeedReport{
-		FeedID:               feedIDString,
-		FullReport:           newReport(t, feedIDBytes, price, observationTimestamp),
-		BenchmarkPrice:       price.Bytes(),
-		ObservationTimestamp: observationTimestamp,
-		Signatures:           [][]byte{},
-		ReportContext:        rawCtx,
-	}
-
-	for _, key := range keyBundles {
-		sig, err := key.Sign(reportCtx, report.FullReport)
-		require.NoError(t, err)
-		report.Signatures = append(report.Signatures, sig)
-	}
-
-	return report
 }
 
 func getKeyBundlesAndPeerIDs(t *testing.T, numNodes int) ([]ocr2key.KeyBundle, []peer) {
@@ -321,27 +279,6 @@ func getKeyBundlesAndPeerIDs(t *testing.T, numNodes int) ([]ocr2key.KeyBundle, [
 		donPeerIDs = append(donPeerIDs, p)
 	}
 	return keyBundles, donPeerIDs
-}
-
-func newFeedID(t *testing.T) string {
-	buf := [32]byte{}
-	_, err := rand.Read(buf[:])
-	require.NoError(t, err)
-	return "0x" + hex.EncodeToString(buf[:])
-}
-
-func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
-	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
-	raw, err := v3Codec.BuildReport(v3.ReportFields{
-		BenchmarkPrice: price,
-		Timestamp:      uint32(timestamp),
-		Bid:            big.NewInt(0),
-		Ask:            big.NewInt(0),
-		LinkFee:        big.NewInt(0),
-		NativeFee:      big.NewInt(0),
-	})
-	require.NoError(t, err)
-	return raw
 }
 
 type testPeerWrapper struct {
@@ -429,12 +366,3 @@ func libp2pMagic() []byte {
 }
 
 func ptr[T any](t T) *T { return &t }
-
-func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
-	rc := evmutil.RawReportContext(reportCtx)
-	flat := []byte{}
-	for _, r := range rc {
-		flat = append(flat, r[:]...)
-	}
-	return flat
-}
